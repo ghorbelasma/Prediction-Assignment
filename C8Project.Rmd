@@ -113,7 +113,7 @@ conf_matrix_RF
 fit_RF$finalModel
 ```
 
-The predictive accuracy of the Random Forest model is excellent at 99.8 %.
+The predictive accuracy of the Random Forest model is excellent at 99.8 % and the estimated out-of-sample error is 0.2%.
 
 ##  Applying the Best Predictive Model to the Test Data
 
