@@ -1,0 +1,128 @@
+---
+title: "Practical Machine Learning Prediction Assignment"
+author: "Asma"
+date: "16 janvier 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Summary
+This document is the final report of the Peer Assessment project from the Practical Machine Learning course, which is a part of the Data Science Specialization. It was written and coded in RStudio, using its knitr functions and published in the html format. The purpose of this analysis is to predict the manner in which the six participants performed the exercises described below and to answer the questions of the associated course quiz. The machine learning algorithm, which uses the classe variable in the training set, is applied to the 20 test cases available in the test data. The predictions are submitted to the Course Project Prediction Quiz for grading.
+
+## Data Loading and Cleaning
+
+
+```{r results='hide',message=FALSE, warning=FALSE}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(corrplot)
+library(rattle)
+library(randomForest)
+library(RColorBrewer)
+```
+
+
+```{r }
+url_train <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_quiz  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+data_train <- read.csv(url(url_train), strip.white = TRUE, na.strings = c("NA",""))
+data_quiz  <- read.csv(url(url_quiz),  strip.white = TRUE, na.strings = c("NA",""))
+```
+
+
+
+The dataset have a large number of NA values as well as near-zero-variance (NZV) variables. Both will be removed together with their ID variables.
+
+```{r }
+nzv_var <- nearZeroVar(data_train)
+data_train <- data_train[ , -nzv_var]
+```
+
+Remove variables that are mostly NA. A threshlod of 95 % is selected.
+
+```{r }
+na_var <- sapply(data_train, function(x) mean(is.na(x))) > 0.95
+data_train <- data_train[ , na_var == FALSE]
+```
+
+Since columns 1 to 5 are identification variables only, they will be removed as well.
+
+```{r }
+data_train <- data_train[ , -(1:5)]
+```
+
+Create two partitions (75 % and 25 %) within the original training dataset.
+
+```{r }
+set.seed(1813)
+in_train  <- createDataPartition(data_train$classe, p=0.75, list=FALSE)
+train_set <- data_train[ in_train, ]
+test_set  <- data_train[-in_train, ]
+```
+
+
+## Correlation Analysis
+
+Perform a correlation analysis between the variables before the modeling work itself is done.
+
+```{r }
+corr_matrix <- cor(train_set[ , -54])
+corrplot(corr_matrix, order = "FPC", method = "circle", type = "lower",tl.cex = 0.6, tl.col = rgb(0, 0, 0))
+```
+
+If two variables are highly correlated their colors are either dark blue (for a positive correlation) or dark red (for a negative corraltions). To further reduce the number of variables, a Principal Components Analysis (PCA) could be performed as the next step. However, since there are only very few strong correlations among the input variables, the PCA will not be performed. Instead, a few different prediction models will be built next.
+
+##  Prediction Models
+### Decision Tree Model
+
+
+```{r }
+fit_decision_tree <- rpart(classe ~ ., data = train_set, method="class")
+fancyRpartPlot(fit_decision_tree)
+```
+
+Predictions of the decision tree model on test_set.
+
+```{r }
+predict_decision_tree <- predict(fit_decision_tree, newdata = test_set, type="class")
+conf_matrix_decision_tree <- confusionMatrix(predict_decision_tree, test_set$classe)
+conf_matrix_decision_tree
+```
+
+The predictive accuracy of the decision tree model is relatively low at 74.9 %.
+
+### Random Forest Model
+
+```{r }
+ctrl_RF <- trainControl(method = "repeatedcv", number = 5, repeats = 2)
+fit_RF  <- train(classe ~ ., data = train_set, method = "rf",
+                  trControl = ctrl_RF, verbose = FALSE)
+```
+
+Predictions of the Random Forest model on test_set.
+
+```{r }
+predict_RF <- predict(fit_RF, newdata = test_set)
+conf_matrix_RF <- confusionMatrix(predict_RF, test_set$classe)
+conf_matrix_RF
+fit_RF$finalModel
+```
+
+The predictive accuracy of the Random Forest model is excellent at 99.8 %.
+
+##  Applying the Best Predictive Model to the Test Data
+
+The Random Forest model is selected and applied to make predictions on the 20 data points from the original testing dataset (data_quiz).
+
+```{r }
+predict_quiz <- predict(fit_RF, newdata = data_quiz)
+predict_quiz
+```
+
+
+
